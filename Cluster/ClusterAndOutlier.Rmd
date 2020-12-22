@@ -1,0 +1,176 @@
+---
+title: "Bochao"
+output: html_notebook
+---
+### Environment
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(mlbench)
+library(cluster)
+library(fpc)
+library(reshape2)
+library(DMwR)
+```
+
+### 1. Load Data
+```{r}
+dt <- read.csv("buddymove_holidayiq.csv",header = TRUE)
+dt <- dt[,2:7]
+```
+
+### 2. Determin K values
+With the following plots, we can know that average silhouette reaches max at K=3, therefore, optimal K value is 3.
+```{r}
+set.seed(1234)
+preA <-c()
+for(i in 2:10){
+  rr <- kmeans(dt,centers = i,iter.max = 200)
+  sua <- silhouette(rr$cluster,dist(dt))
+  preA <- c(preA,mean(sua[,3]))
+}
+ggplot(data.frame(nc=2:10,ns=preA),
+       aes(x=nc,y=ns))+geom_point(size=4,color="blue")+geom_line()+
+       xlab("Data Clusters")+ylab("Silhouette Coefficient")
+```
+
+### 3. Anaylize K-mean
+```{r}
+clusters <- kmeans(dt,centers = 3,iter.max = 200)
+forp <- silhouette(clusters$cluster,dist(dt))
+plot(forp,border=NA)
+```
+
+### 4. Analyize PAM
+```{r}
+clusters <- pam(dt,k=3)
+plot(clusters)
+forp <- silhouette(clusters$clustering,dist(dt))
+plot(forp,col="grey",border = NA)
+```
+
+### 5. CLARA
+With the following result, we can see that 3 clusters is the optimal choice.
+```{r}
+set.seed(1234)
+preA <-c()
+for(i in 2:10){
+  rr <- clara(dt,i)
+  sua <- silhouette(rr$cluster,dist(dt))
+  preA <- c(preA,mean(sua[,3]))
+}
+ggplot(data.frame(nc=2:10,ns=preA),
+       aes(x=nc,y=ns))+geom_point(size=4,color="blue")+geom_line()+
+       xlab("Data Clusters")+ylab("Silhouette Coefficient")
+```
+
+
+### 6.CLARA result
+```{r}
+clb <- clara(dt,3)
+clusplot(clb)
+```
+
+### 7. Analyize CLARA
+```{r}
+forp <- silhouette(clb$clustering,dist(dt))
+plot(forp,col="grey",border = NA)
+```
+
+### 8. DBSCAN
+```{r}
+preDb <- scale(dt)
+db <- dbscan(preDb,0.9,10)
+plot(db,preDb)
+forp <- silhouette(db$cluster,dist(preDb))
+plot(forp,border = NA)
+```
+
+### 9. Hierarchical clustring
+With the following plot, we can see that using single or average method and 2 clusters is our optimal choice.
+```{r}
+preDb <- dist(scale(dt))
+alts <- c('complete','single','average')
+preA <- matrix(NA,ncol=3,nrow=9,dimnames=list(2:10,alts))
+
+for(i in 2:10){
+  for(m in seq_along(alts)){
+    height <- hclust(preDb,meth=alts[m])
+    c<-cutree(height,i)
+    sua <- silhouette(c,preDb)
+    preA[i-1,m] <- mean(sua[,3])
+  }
+}
+
+preDt <- melt(preA)
+colnames(preDt) <- c("Nclusters","Method","Result")
+ggplot(preDt,aes(x=Nclusters,y=Result,color=Method))+geom_line()
+```
+
+### 10. Analyize Hierarchical clustring
+```{r}
+preDb <- dist(scale(dt))
+height <- hclust(preDb, method = "complete")
+cls <- cutree(height,2)
+plot(height)
+
+frp <- silhouette(cls,preDb)
+plot(frp,border=NA)
+```
+
+### 11. Summarize all results for clustring
+With all results above, we get  
+1. k-means with k=3, silhouette = 0.35  
+2. CLARA with 3 clusters, silhouette = 0.34  
+3. DBSCAN, silhouette = 0.02  
+4. Hierarchical clustering with single or average method, with 2 clusters, silhouette = 0.4  
+  
+As a result, we believe that using Hierarchical clustering with single or average method, with tree cut in 2, is our best choice to complete the task.  
+
+### 12. Outlier Detection with IQR
+Number of outliers in different column is shown in the following table.
+```{r}
+ocs <- c(0,0,0,0,0,0)
+for(i in 1:6){
+  tem <- IQR(dt[,i])
+  qt <- quantile(dt[,i])
+  q1 <- qt[2]
+  q3 <- qt[4]
+  counter <- 0
+  for(k in 1:nrow(dt)){
+    if( (dt[k,i] < (q1-1.5*tem)) | (dt[k,i] > (q3+1.5*tem)) ){
+      counter <- counter + 1
+      print(k)
+    }
+    ocs[i]<-counter
+  }
+}
+data.frame(ocs,colnames(dt))
+boxplot(dt)
+```
+
+### 13. DBSCAN outlier detection
+Following result are the number of outliers using DBSCAN
+```{r}
+otp <- scale(dt)
+odb <- dbscan(otp,1)
+which(odb$cluster==0)
+```
+
+### 14. LOF outlier detection
+Following results are the outlier presented by the case number  
+Lof score threshold is set to be 1.3
+```{r}
+lof <- lofactor(dt,3)
+which(lof>1.3)
+```
+
+### 15. Outlier ranking
+Following results are the outlier presented by the case number  
+First 10 in the rank is considered to be outliers
+```{r}
+or <- outliers.ranking(dt)
+#round(or$prob.outliers,3)
+head(order(or$rank.outliers,decreasing = TRUE),10)
+```
