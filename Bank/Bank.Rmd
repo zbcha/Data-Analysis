@@ -1,0 +1,201 @@
+---
+title: "Bochao"
+output: html_notebook
+---
+Environment for ASN2
+```{r}
+library(dplyr)
+library(Hmisc)
+library(psych)
+```
+
+Exercise 1a
+Loading the data set
+```{r}
+ds <- read.csv(file="bank-additional-full.csv",sep=';')
+```
+
+Exercise 2a
+General descriptive statistics
+```{r}
+summary(ds)
+```
+
+Exercise 2b
+There are 7.15% cases being removed. (Less than 10%)
+```{r}
+ol <- nrow(ds)
+ds[which(ds$job == "unknown"),"job"]<-NA
+ds[which(ds$marital == "unknown"),"marital"]<-NA
+ds[which(ds$education == "unknown"),"education"]<-NA
+ds[which(ds$housing == "unknown"),"housing"]<-NA
+ds[which(ds$loan == "unknown"),"loan"]<-NA
+
+ds <- na.omit(ds)
+ne <- nrow(ds)
+red_rate <- (ol-ne)/ol
+red_rate
+```
+
+Exercise 2c
+Age Category is created
+```{r}
+youth <- seq(0,18)
+young_adult <- seq(19,34)
+adult <- seq(35,59)
+senior <- seq(60,100)
+
+ds$cat_age <- ifelse(ds$age %in% youth, "youth",
+             ifelse(ds$age %in% young_adult, "young adult",
+             ifelse(ds$age %in% adult, "adult",
+             ifelse(ds$age %in% senior, "senior",
+              NA))))
+```
+
+Exercise 2c
+Distinguish old and new client
+```{r}
+ds$client_NewOld <- ifelse(ds$poutcome == "nonexistent", "new client",
+                    ifelse(ds$poutcome == "failure", "old client",
+                    ifelse(ds$poutcome == "success", "old client",NA)))
+ds
+```
+
+Exercise 2d
+General summary of 'age' by each 'job's
+```{r}
+describeBy(ds$age, ds$job)
+```
+
+Exercise 2e
+Finds the mode of 'moth', the result is 'may' as the result shown
+```{r}
+mode <- names(sort(table(ds$month)))[length(table(ds$month))]
+mode
+```
+
+Exercise 2f
+As the result shown
+mean = 258.21
+median = 180
+variance = 67492.22
+inter-quartile range: 217
+```{r}
+mean(ds$duration)
+median(ds$duration)
+var(ds$duration)
+IQR(ds$duration)
+```
+
+Exercise 2g
+```{r}
+group_by(ds,cat_age) %>% summarise(mean=mean(campaign),sd=sd(campaign),.groups='drop')
+group_by(ds,y) %>% summarise(mean=mean(campaign),sd=sd(campaign),.groups='drop')
+group_by(ds,cat_age,y) %>% summarise(mean=mean(campaign),sd=sd(campaign),.groups='drop')
+```
+
+Exercise 2h
+In desending order
+```{r}
+group_by(ds,marital,education) %>% tally(sort = TRUE)
+```
+
+Exercise 2i
+As the result shown,
+the 3 days of the week where most contacts are made for persons with “single” as marital status are:
+Thursday
+Wednesday
+Friday
+```{r}
+tb <- table(ds$day_of_week,ds$marital)
+tb
+ratio <- sort(tb[,3]/(tb[,1]+tb[,2]+tb[,3]),decreasing = TRUE)
+ratio
+#ratio is the proportion of the 'single' in the 'day_of_week'
+names(alt[c(1,2,3)])
+```
+
+Exercise 2j
+As the result shown,
+there are 2220 outliers in the column 'campaign'
+```{r}
+iqr <- IQR(ds$campaign)
+lowq <- quantile(ds$campaign)[2]-iqr*1.5
+highq <- quantile(ds$campaign)[4]+iqr*1.5
+nrow(subset(ds, campaign>highq | campaign<lowq))
+```
+
+Exercise 2k
+The following table shows the information of the cases whose column 'age' is considered as outliers
+```{r}
+iqr <- IQR(ds$age)
+lowq <- quantile(ds$age)[2]-iqr*1.5
+highq <- quantile(ds$age)[4]+iqr*1.5
+sub <- subset(ds, age>highq | age<lowq)
+sub
+nrow(sub)
+mean(sub$age)
+median(sub$age)
+```
+
+Exercise 2l
+A table indicates the number of outliers with 'euribor3m' value larger than 1.5 for each typr of 'client_NewOld' and 'cat_age'
+```{r}
+iqr <- IQR(ds$campaign)
+lowq <- quantile(ds$campaign)[2]-iqr*1.5
+highq <- quantile(ds$campaign)[4]+iqr*1.5
+sub <- subset(ds, (campaign>highq | campaign<lowq) & euribor3m>1.5)
+table(sub$cat_age,sub$client_NewOld)
+```
+
+Exercise 2m
+Plot shows the frequncy of each type of job with barplot
+```{r}
+freq <- table(ds$job)
+barplot(freq,las=2, cex.names=1)
+```
+
+Exercise 2n
+```{r}
+theme_update(text = element_text(size=8))
+ggplot(ds, aes(job,fill=y))+geom_bar(position = 'dodge')
+```
+
+Exercise 2o
+```{r}
+ggplot(ds, aes(age,fill=default))+geom_density(alpha=.5)
+```
+
+Exercise 2p
+According to the following plot,
+the data in 'duration' follows a right-skewed pattern normal distribution generally, 
+with the density curve shown in the plot 
+```{r}
+ggplot(ds, aes(duration))+geom_histogram(aes(y = ..density..),fill='blue',color='darkblue',alpha=.5,bins=100)+geom_density(color='darkblue',size=1)+xlim(0,1000)
+```
+
+Exercise 2q
+```{r}
+ggplot(ds,aes(x=duration,y=y,fill=client_NewOld))+geom_boxplot()
+```
+
+Exercise 3
+Founding #1:
+According to the two following plots,
+we can find most people have much more housing loan instead of personal loan
+```{r}
+ggplot(ds, aes(job,fill=loan))+geom_bar(position = 'dodge')
+ggplot(ds, aes(job,fill=housing))+geom_bar(position = 'dodge')
+```
+Founding #2:
+Jobs like admin tend to be formed with employees with university degree (high level degree),
+Professional courses helps people getting technical jobs,
+```{r}
+ggplot(ds, aes(job,fill=education))+geom_bar(position = 'dodge')
+```
+Founding #3:
+Most of the unmarried people are formed with young adult and adult,
+Marriage and divorced happen in the adult age mainly
+```{r}
+ggplot(ds, aes(age,fill=marital))+geom_density(alpha=.5)
+```
