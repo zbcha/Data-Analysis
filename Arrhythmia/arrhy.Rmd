@@ -1,0 +1,160 @@
+---
+title: "Bochao"
+output: html_notebook
+---
+Exercise 1
+Environment
+```{r}
+library(readr)
+library(dplyr)
+library(stringr)
+library(Hmisc)
+```
+
+```{r}
+ds <- read.table("arrhythmia.data",sep=",",header = FALSE,stringsAsFactors = TRUE)
+cnames <- read_lines("arrhythmia.names")
+cnames <- cnames[65:163]
+cnames1 <- cnames[1:19]
+cnames2 <- cnames[21:59]
+cnames3 <- cnames[61:99]
+cnames1 <- cnames1[-c(7,12,9)]
+cnames1 <- str_split_fixed(cnames1,":", 2)[,1]
+cnames1 <- cnames1[-c(15)]
+cnames1 <- str_split_fixed(cnames1,"    ", 2)
+cnames1 <- str_split_fixed(cnames1,"      ", 2)
+cnames1 <- cnames1[,1]
+cnames1 <- cnames1[c(16:30)]
+cnames1 <- gsub("  "," ",cnames1[1:15])
+cnames1 <- str_split_fixed(cnames1," ", 3)[,3]
+#Cnames1 Done!
+cnames2sub <- cnames2[2:16]
+cnames2sub <- cnames2sub[-c(1,7,9)]
+cnames2sub <-str_split_fixed(cnames2sub,"      ", 2)[,2]
+cnames2sub <-str_split_fixed(cnames2sub," ", 2)[,2]
+cnames2sub <-str_split_fixed(cnames2sub,",", 2)[,1]
+cnames2 <- cnames2[-c(2:17)]
+cnames2 <- c(cnames2[c(1)],cnames2[seq(2,length(cnames2),2)])
+cnames2 <- str_split_fixed(cnames2,"     ", 2)[,2]
+cnames2 <- str_split_fixed(cnames2,":", 2)[,1]
+#Cnames2 Done!
+cnames3sub <- cnames3[c(3:16)]
+cnames3sub <- cnames3sub[-c(9,11,13,14)]
+cnames3sub <- str_split_fixed(cnames3sub,"      ", 2)[,2]
+cnames3sub <- str_split_fixed(cnames3sub,",", 2)[,1]
+cnames3sub <- str_split_fixed(cnames3sub," =", 2)[,1]
+cnames3sub <- str_split_fixed(cnames3sub," ", 2)[,2]
+#Cnames3 Done!
+cnames2sub <- c(paste(cnames2sub[1:5],"average width",sep=" "),cnames2sub[6:12])
+cnames3sub <- c(paste(cnames3sub[1:8],"amplitude",sep=" "),cnames3sub[9:10])
+for(i in 1:12){
+  for(j in 1:12){
+    cnames1 <- append(cnames1,paste(cnames2sub[c(j)],cnames2[c(i)],sep=" "))
+  }
+}
+for(i in 1:12){
+  for(j in 1:10){
+    cnames1 <- append(cnames1,paste(cnames3sub[c(j)],cnames2[c(i)],sep=" "))
+  }
+}
+cnames1 <- append(cnames1,"Diagnostic")
+cnames1 <- str_replace_all(cnames1,fixed("'")," reversed")
+#cnames1
+colnames(ds) <- make.names(cnames1)
+#Colnames Done!
+```
+
+```{r}
+ds
+```
+
+Exercise 2
+Section 1
+```{r}
+ncol(ds)
+nrow(ds)
+```
+Therefore, data set has 280 colnumns and 452 rows.
+
+Section2
+```{r}
+traq <- colSums(ds=="?")
+traq <- as.vector(traq)
+traqName <- c()
+traqNum <- c()
+for(i in 1:280){
+  if(traq[c(i)] != 0){
+    traqNum <- c(traqNum,i)
+    traqNum <- c(traqNum,traq[c(i)])
+    traqName <- c(traqName,colnames(ds[i]))
+  }
+}
+result <- matrix(c(traqNum),nrow=2)
+colnames(result) <- traqName
+rownames(result) <- c("No. of column","No. of missing value")
+result
+print("Number of rows that contain at least one missing value:")
+tol <- 0
+for(i in 1:452){
+  for(j in 1:280){
+    if(ds[i,j]=="?"){
+      tol <- tol+1
+      break
+    }
+  }
+}
+tol
+```
+As the result indicates above, row No.11-15 have missing value.
+
+Section 3
+```{r}
+ds[which(ds$T == "?"),"T"]<-NA
+ds[which(ds$P == "?"),"P"]<-NA
+ds[which(ds$QRST == "?"),"QRST"]<-NA
+ds[which(ds$J == "?"),"J"]<-NA
+ds[which(ds$Heart.rate == "?"),"Heart.rate"]<-NA
+#All ?'s are removed
+ds
+```
+
+Section 4
+```{r}
+disc_height <- cut(ds$Height,quantile(ds$Height,probs = seq(0,1,.20)))
+table(disc_height)
+disc_weight <- cut(ds$Weight,quantile(ds$Weight,probs = seq(0,1,.20)))
+table(disc_weight)
+ds$Disc_Height <- disc_height
+ds$Disc_Weight <- disc_weight
+#A overview on the quantile intervals in the result
+ds
+```
+
+Exercise 3
+Section 1
+```{r}
+group_by(ds,Diagnostic) %>% tally()
+```
+
+Section 2
+```{r}
+group_by(ds,Disc_Weight,Diagnostic) %>% tally()
+```
+
+Section 3
+```{r}
+group_by(ds,Sex,Disc_Weight) %>% tally()
+```
+
+Section 4
+```{r}
+group_by(ds,Sex) %>% summarise(mean=mean(QRS.duration))
+```
+
+Section 5
+```{r}
+ratio <- c(ds$T.interval/ds$P.interval)
+ratio[which(ratio == Inf)] <- 0
+ds$Ratio <- ratio
+group_by(ds,Disc_Weight) %>% summarise(Avg.Ratio=mean(Ratio))
+```
